@@ -146,7 +146,7 @@ def main():
     dataframe_informations_partial_tool = partial(dataframe_informations, df=df, llm=llm)
     dataframe_informations_tool = Tool(
         name="DataFrame Informations",
-        func=dataframe_informations_partial_tool,
+        func=lambda question: dataframe_informations_partial_tool(question),
         return_direct=True,
         description=""""
             Utilize esta ferramenta sempre que o usuário solicitar
@@ -160,7 +160,7 @@ def main():
     statistical_summary_partial_tool = partial(statistical_summary, df=df, llm=llm)
     statistical_summary_tool = Tool(
         name="Statistical Summary",
-        func=statistical_summary_partial_tool,
+        func=lambda question: statistical_summary_partial_tool(question),
         return_direct=True,
         description=""""
             Utilize esta ferramenta sempre que o usuário solicitar um
@@ -176,7 +176,7 @@ def main():
     graph_partial_tool = partial(graph_generator, df=df, llm=llm)
     graph_tool = Tool(
         name="Graph Generator",
-        func=graph_partial_tool,
+        func=lambda question: graph_partial_tool(question),
         return_direct=True,
         description=""""
             Utilize esta ferramenta sempre que o usuário solicitar um
