@@ -33,9 +33,9 @@ def results_by_faissdb(company_documents, embeddings):
 
     dimension = 768  # Dimensão dos embeddings do modelo gemini-embedding-001 (768 valores por vetor)
     neighbors = 32  # Número de vizinhos a serem considerados para consultas de similaridade
-    index = faiss.IndexHNSWFlat(dimension, neighbors)  # Usando HNSW para melhor desempenho em grandes volumes de dados
+    faiss.IndexHNSWFlat(dimension, neighbors)  # Usando HNSW para melhor desempenho em grandes volumes de dados
 
-    faiss_db = FAISS.from_documents(company_documents, embeddings)
+    faiss_db = FAISS.from_documents(company_documents, embedding=embeddings)
 
     question = "Como peço minhas férias na empresa?"
     # Busca os 2 documentos mais parecidos para a pergunta usando o índice FAISS
@@ -172,9 +172,9 @@ def main():
         )
     ]
 
-    # results_by_faissdb(company_documents, embeddings)
+    results_by_faissdb(company_documents, embeddings)
     # results_by_chromadb(company_documents, embeddings)
-    results_by_pinecone(company_documents, embeddings)
+    # results_by_pinecone(company_documents, embeddings)
 
     # llm = ChatGoogleGenerativeAI(
     #     model="gemini-2.5-flash-lite",
