@@ -4,7 +4,7 @@ Este módulo extrai, transforma e prepara documentos com metadados e chunking
 para indexação em bancos vetoriais.
 """
 
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -12,6 +12,7 @@ from langchain.schema import Document
 import duckdb
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 
 
 def etl_pdf_process(llm: ChatGoogleGenerativeAI | None = None) -> list[Document]:
@@ -24,34 +25,41 @@ def etl_pdf_process(llm: ChatGoogleGenerativeAI | None = None) -> list[Document]
         Lista de documentos prontos para indexação.
     """
 
-    # Extração de dados do PDF com PyPDFLoader (simples e leve).
-    loader = PyPDFLoader("chatbot_com_rag/assets/relatorio_vendas.pdf")
-    docs = loader.load()
-    # print("Total de páginas extraídas:", len(docs))
+    base_dir = Path("chatbot_com_rag/assets")
+    file_paths = sorted(list(base_dir.glob("*.pdf")))
 
-    # Transformação de dados (metadados adicionais por página).
-    docs_with_metadata = []
-    for i, doc in enumerate(docs):
-        # Normaliza numeração de páginas para iniciar em 1.
-        page_number = (doc.metadata.get("page", i) or i) + 1
-        metadata = {
-            "id_doc": f"doc{i + 1}",
-            "source": "relatorio_vendas.pdf",
-            "page_number": page_number,
-            "categoria": "N/A",
-            "id_produto": "N/A",
-            "preco": "N/A",
-            "timestamp": datetime.now().strftime("%Y-%m-%d"),
-            "data_owner": "Departamento de Vendas",
-            **doc.metadata.copy()
-        }
-        # Cabeçalho textual facilita rastreamento do trecho na resposta.
-        page_header = f"[Relatório de Vendas | Página {page_number}]\n"
-        docs_with_metadata.append(
-            Document(page_content=f"{page_header}{doc.page_content}", metadata=metadata)
-        )
+    if not file_paths:
+        return []
 
-    # print("Total de documentos com metadata:", len(docs_with_metadata))
+    docs_with_metadata: list[Document] = []
+    for file_path in file_paths:
+        # Extração de dados do PDF com PyPDFLoader (simples e leve).
+        loader = PyPDFLoader(file_path)
+        docs = loader.load()
+        # print(f"Total de páginas extraídas para {file_path.name}: {len(docs)}")
+
+        # Transformação de dados (metadados adicionais por página).
+        for i, doc in enumerate(docs):
+            # Normaliza numeração de páginas para iniciar em 1.
+            page_number = (doc.metadata.get("page", i) or i) + 1
+            metadata = {
+                "id_doc": f"doc{i + 1}",
+                "source": file_path.name,
+                "page_number": page_number,
+                "categoria": "N/A",
+                "id_produto": "N/A",
+                "preco": "N/A",
+                "timestamp": datetime.now().strftime("%Y-%m-%d"),
+                "data_owner": "Departamento de Vendas",
+                **doc.metadata.copy()
+            }
+            # Cabeçalho textual facilita rastreamento do trecho na resposta.
+            page_header = f"[Relatório de Vendas | Página {page_number}]\n"
+            docs_with_metadata.append(
+                Document(page_content=f"{page_header}{doc.page_content}", metadata=metadata)
+            )
+
+        # print(f"Total de documentos com metadata para {file_path.name}: {len(docs_with_metadata)}")
 
     # Transformação de dados (chunking)
     # Dividimos o texto para respeitar limites de contexto dos embeddings.
@@ -65,27 +73,23 @@ def etl_pdf_process(llm: ChatGoogleGenerativeAI | None = None) -> list[Document]
     # print("Total de chunks gerados:", len(chunks))
 
     # Resumo opcional do PDF para fornecer visão geral ao modelo.
+    summary_chunks = []
     if llm is not None and chunks:
-        try:
-            pdf_text = "\n\n".join(doc.page_content for doc in chunks)
-            max_chars = 6000
-            if len(pdf_text) > max_chars:
-                pdf_text = pdf_text[:max_chars]
+        summary_prompt = ChatPromptTemplate.from_messages([
+            (
+                "system",
+                "Resuma o conteúdo do PDF de forma objetiva em português, destacando números e períodos importantes."
+            ),
+            ("human", "{doc_content}")
+        ])
 
-            summary_prompt = ChatPromptTemplate.from_messages([
-                (
-                    "system",
-                    "Resuma o conteúdo do PDF de forma objetiva em português, destacando números e períodos importantes."
-                ),
-                ("human", "{text}")
-            ])
-            summary_messages = summary_prompt.format_messages(text=pdf_text)
-            summary_response = llm.invoke(summary_messages)
-            summary_text = summary_response.content.strip()
-
+        chain = summary_prompt | llm
+        summaries = chain.batch([{"doc_content": chunk.page_content} for chunk in chunks])
+        for summary in summaries:
+            summary_text = summary.content.strip()
             summary_metadata = {
                 "id_doc": "pdf_summary",
-                "source": "relatorio_vendas.pdf",
+                "source": file_path.name,
                 "page_number": 1,
                 "categoria": "N/A",
                 "id_produto": "N/A",
@@ -94,17 +98,66 @@ def etl_pdf_process(llm: ChatGoogleGenerativeAI | None = None) -> list[Document]
                 "data_owner": "Departamento de Vendas",
                 "type": "summary"
             }
-            chunks.append(
+            summary_chunks.append(
                 Document(page_content=f"[Resumo do PDF]\n{summary_text}", metadata=summary_metadata)
             )
-        except Exception as e:
-            print(f"Aviso: falha ao gerar resumo do PDF: {e}")
+    else:
+        summary_chunks = chunks.copy()  # Se não houver LLM, usamos os chunks originais sem resumo.
+
+    return summary_chunks
+
+
+def etl_text_process() -> list[Document]:
+    """
+    Extrai e transforma documentos Markdown/TXT em chunks com metadados.
+
+    Returns:
+        Lista de documentos prontos para indexação.
+    """
+
+    base_dir = Path("chatbot_com_rag/assets")
+    file_paths = sorted(list(base_dir.glob("*.txt")))
+
+    if not file_paths:
+        return []
+
+    docs_with_metadata: list[Document] = []
+    for file_path in file_paths:
+        loader = TextLoader(str(file_path), encoding="utf-8")
+        docs = loader.load()
+
+        for i, doc in enumerate(docs):
+            metadata = {
+                "id_doc": f"text_{file_path.stem}_{i + 1}",
+                "source": file_path.name,
+                "page_number": "N/A",
+                "categoria": "N/A",
+                "id_produto": "N/A",
+                "preco": "N/A",
+                "timestamp": datetime.now().strftime("%Y-%m-%d"),
+                "data_owner": "Departamento de Vendas",
+                **doc.metadata.copy()
+            }
+            file_header = f"[Arquivo: {file_path.name}]\n"
+            docs_with_metadata.append(
+                Document(page_content=f"{file_header}{doc.page_content}", metadata=metadata)
+            )
+
+    # Transformação de dados (chunking)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=700,
+        chunk_overlap=100,
+        separators=["\n\n", "\n", ". ", " ", ""],
+    )
+
+    chunks = text_splitter.split_documents(docs_with_metadata)
 
     return chunks
 
 
 def etl_db_process() -> list[Document]:
-    """Extrai e transforma dados de um banco DuckDB em documentos.
+    """
+    Extrai e transforma dados de um banco DuckDB em documentos.
 
     Returns:
         Lista de documentos prontos para indexação.
