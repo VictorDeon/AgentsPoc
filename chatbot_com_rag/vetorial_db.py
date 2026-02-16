@@ -1,7 +1,10 @@
 from utils import load_environment_variables, get_env_var
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS, Chroma
+from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_pinecone import Pinecone
+from langchain.storage import LocalFileStore
+from langchain.embeddings import CacheBackedEmbeddings
 from pinecone import ServerlessSpec, Pinecone as PineconeClient
 from langchain.schema import Document
 import faiss
@@ -9,7 +12,38 @@ import faiss
 load_environment_variables()
 
 
-def results_by_faissdb(company_documents: list[Document], embeddings: GoogleGenerativeAIEmbeddings):
+def results_by_cache(embeddings: GoogleGenerativeAIEmbeddings) -> CacheBackedEmbeddings:
+    """
+    O Cache de Embeddings: é uma camada de armazenamento intermediária que armazena os vetores de embeddings
+    gerados a partir de textos ou outros dados. Ele é projetado para acelerar o processo de recuperação de
+    informações, evitando a necessidade de recalcular os embeddings para os mesmos dados repetidamente.
+
+    Funciona da seguinte maneira:
+    1. Geração de Embeddings: Quando um texto é processado pela primeira vez, o modelo de embeddings gera um vetor numérico
+    que representa o significado do texto.
+    2. Armazenamento em Cache: Esse vetor é então armazenado em um cache (que pode ser na memória, em um
+    banco de dados ou em um sistema de arquivos).
+    3. Recuperação Rápida: Na próxima vez que o mesmo texto for processado, o sistema verifica primeiro o cache.
+    Se o vetor já estiver lá, ele é recuperado imediatamente, economizando tempo e recursos computacionais.
+    4. Atualização do Cache: Se o texto for modificado ou se um novo texto for processado, um novo vetor
+    será gerado e armazenado no cache para futuras consultas.
+
+    O uso do cache de embeddings é especialmente benéfico em aplicações onde os mesmos textos são processados repetidamente,
+    como em sistemas de busca, chatbots ou qualquer cenário onde a eficiência na recuperação de informações seja crucial.
+    Ele ajuda a melhorar significativamente a performance e a escalabilidade da aplicação.
+    """
+
+    store = LocalFileStore("./embeddings_cache")
+    cached_embeddings: CacheBackedEmbeddings = CacheBackedEmbeddings.from_bytes_store(
+        embeddings,
+        store,
+        namespace="gemini-embedding-cache"
+    )
+
+    return cached_embeddings
+
+
+def results_by_faissdb(company_documents: list[Document], embeddings: GoogleGenerativeAIEmbeddings) -> FAISS:
     """
     O que é o FAISS: É uma biblioteca de código para fazer buscas de similaridade
     muito rápidas. Dado um item, ela encontra os mais parecidos dentro de um grande volume de dados.
@@ -31,21 +65,19 @@ def results_by_faissdb(company_documents: list[Document], embeddings: GoogleGene
     da velocidade, pois é mais simples e confiável para projetos iniciais e pequenos.
     """
 
+    filtered_documents = filter_complex_metadata(company_documents)
+
     dimension = 768  # Dimensão dos embeddings do modelo gemini-embedding-001 (768 valores por vetor)
     neighbors = 32  # Número de vizinhos a serem considerados para consultas de similaridade
     faiss.IndexHNSWFlat(dimension, neighbors)  # Usando HNSW para melhor desempenho em grandes volumes de dados
 
-    faiss_db = FAISS.from_documents(company_documents, embedding=embeddings)
+    vector_store = FAISS.from_documents(filtered_documents, embedding=embeddings)
+    vector_store.save_local("faiss_index")  # Salva o índice FAISS localmente para persistência e reutilização futura
 
-    question = "Como peço minhas férias na empresa?"
-    # Busca os 2 documentos mais parecidos para a pergunta usando o índice FAISS
-    results = faiss_db.similarity_search(question, k=2)
-    print("Documentos mais relevantes para a pergunta:")
-    for doc in results:
-        print(f"- {doc.metadata['id_doc']}: {doc.page_content}")
+    return vector_store
 
 
-def results_by_chromadb(company_documents: list[Document], embeddings: GoogleGenerativeAIEmbeddings):
+def results_by_chromadb(company_documents: list[Document], embeddings: GoogleGenerativeAIEmbeddings) -> Chroma:
     """
     O Chroma DB: O Banco de Dados Vetorial Simples e Poderoso para IA
     Chroma é um banco de dados vetorial open-source, criado especialmente para
@@ -61,18 +93,15 @@ def results_by_chromadb(company_documents: list[Document], embeddings: GoogleGen
     mas que forma publicados apenas no último mês e que pertencem à categoria 'notícias'"
     """
 
-    chroma_db = Chroma.from_documents(company_documents, embeddings)
+    filtered_documents = filter_complex_metadata(company_documents)
 
-    question = "Quero tirar uns dias de folga do trabalho, como faço isso?"
-    # Busca os 2 documentos mais parecidos para a pergunta usando o índice Chroma
-    # results = chroma_db.similarity_search(question, k=2, filter={"$and": [{"departamento": "RH"}, {"tipo": "política"}]})
-    results = chroma_db.similarity_search(question, k=2)
-    print("Documentos mais relevantes para a pergunta:")
-    for doc in results:
-        print(f"- {doc.metadata['id_doc']}: {doc.page_content}")
+    vector_store = Chroma.from_documents(filtered_documents, embeddings)
+    vector_store.persist()  # Salva os vetores e metadados no armazenamento do Chroma
+
+    return vector_store
 
 
-def results_by_pinecone(company_documents: list[Document], embeddings: GoogleGenerativeAIEmbeddings):
+def results_by_pinecone(company_documents: list[Document], embeddings: GoogleGenerativeAIEmbeddings) -> Pinecone:
     """
     O Pinecone: é um banco de dados vetorial de nível profissional, oferecido como
     um serviço na nuvem (SaaS). totalmente gerenciado. Sua proposta é eliminar toda
@@ -99,6 +128,8 @@ def results_by_pinecone(company_documents: list[Document], embeddings: GoogleGen
     desejada.
     """
 
+    filtered_documents = filter_complex_metadata(company_documents)
+
     PINECONE_API_KEY = get_env_var('PINECONE_API_KEY')
     index_name = "pinecone-poc"  # Nome do índice criado no painel do Pinecone
 
@@ -124,18 +155,10 @@ def results_by_pinecone(company_documents: list[Document], embeddings: GoogleGen
     print(f"Índice '{index_name}' criado com sucesso no Pinecone.")
 
     pinecone_db = Pinecone.from_documents(
-        documents=company_documents,
+        documents=filtered_documents,
         embedding=embeddings,
         index_name=index_name,
     )
     print(f"Documentos inseridos no índice '{index_name}' com sucesso.")
 
-    if pinecone_db:
-        # Busca por similaridade
-        question = "Como eu configuro minha VPN?"
-        results = pinecone_db.similarity_search(question, k=2)
-        print("Documentos mais relevantes para a pergunta:")
-        for doc in results:
-            print(f"- {doc.metadata['id_doc']}: {doc.page_content}")
-    else:
-        print("Erro ao conectar ao índice do Pinecone. Verifique as configurações e tente novamente.")
+    return pinecone_db
