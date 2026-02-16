@@ -29,7 +29,7 @@ from etls import etl_pdf_process, etl_db_process
 load_environment_variables()
 
 
-def main():
+def main(question: str):
     """Orquestra todo o fluxo de RAG, do ETL à resposta da pergunta."""
     # Recupera a chave de API do Gemini do ambiente. Falha cedo se ausente.
     GEMINI_API_KEY = get_env_var('GEMINI_API_KEY')
@@ -164,8 +164,6 @@ def main():
     )
 
     # Pergunta de exemplo (pode ser substituída por entrada do usuário).
-    # question = "Qual foi o total de vendas no primeiro trimestre de 2024?"
-    question = "Qual o produto mais caro vendido e qual é o preço dele?"
     print(f"\nPergunta: {question}")
     try:
         question = guardrails.validate_input(question)
@@ -186,4 +184,5 @@ def main():
 
 if __name__ == "__main__":
     # Ponto de entrada para execução via CLI.
-    main()
+    question = "Qual o produto mais caro vendido e qual é o preço dele?"
+    main(question)
