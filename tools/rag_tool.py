@@ -46,7 +46,7 @@ def rag_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
     document_prompt = PromptTemplate.from_template(get_prompt("doc_context.prompt.md"))
 
     # Recuperador semântico com top-k documentos mais relevantes.
-    semantic_retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+    semantic_retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 
     # Lexical retriever (BM25) para complementar a busca semântica, especialmente útil para termos específicos.
     lexical_retriever = BM25Retriever.from_documents(documents)

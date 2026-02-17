@@ -48,7 +48,7 @@ def etl_pdf_process(llm: ChatGoogleGenerativeAI | None = None) -> list[Document]
     # Dividimos o texto para respeitar limites de contexto dos embeddings.
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1500,  # Mais contexto por chunk para preservar trechos inteiros do PDF.
-        chunk_overlap=200,  # Sobreposição para manter continuidade entre trechos.
+        chunk_overlap=200,  # Sobreposição para manter continuidade entre trechos (volta 200 caracteres no texto).
         separators=["\n\n", "\n", ". ", " ", ""],
     )
 
