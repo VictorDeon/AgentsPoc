@@ -1,8 +1,8 @@
 from langchain_community.document_loaders import TextLoader, PyPDFDirectoryLoader
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.schema import Document
 from utils import get_prompt
 from datetime import datetime
 from pathlib import Path

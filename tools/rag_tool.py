@@ -1,21 +1,20 @@
 from utils import get_env_var
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain_core.chat_history import InMemoryChatMessageHistory
-from langchain.tools import tool
-from langchain.chains.history_aware_retriever import create_history_aware_retriever
-from langchain.chains.retrieval import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
-from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain.tools import tool, ToolRuntime
+from langchain_classic.chains.history_aware_retriever import create_history_aware_retriever
+from langchain_classic.chains.retrieval import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_community.retrievers import BM25Retriever
-from langchain.retrievers import EnsembleRetriever
+from langchain_classic.retrievers import EnsembleRetriever
+from dtos import QuestionInputDTO, MainContext
 from rags.vetorial_db import results_by_chromadb
 from utils import get_prompt
 from rags.etls import etl_pdf_process
 
 
-@tool
-def rag_tool(question: str, session: InMemoryChatMessageHistory, session_id: str) -> str:
+@tool(args_schema=QuestionInputDTO)
+def rag_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
     """
     Utilize esta ferramenta para responder perguntas usando os documentos do RAG (conteúdo de PDFs e dados).
     Perguntas referentes os tópicos: Arquitera de RAG, Armazenamento Vetorial, Embeddings,
@@ -23,6 +22,8 @@ def rag_tool(question: str, session: InMemoryChatMessageHistory, session_id: str
     Hybrid Search e técnicas Avançadas de RAG devem ser respondidas utilizando esta ferramenta,
     que tem acesso ao conteúdo dos documentos.
     """
+
+    context = runtime.context
 
     # Recupera a chave de API do Gemini do ambiente. Falha cedo se ausente.
     GEMINI_API_KEY = get_env_var('GEMINI_API_KEY')
@@ -77,14 +78,12 @@ def rag_tool(question: str, session: InMemoryChatMessageHistory, session_id: str
     # Prompt para reescrever a pergunta com base no histórico (sem responder).
     contextualize_q_prompt = ChatPromptTemplate.from_messages([
         ("system", get_prompt("contextualize_query.prompt.md")),
-        MessagesPlaceholder("chat_history"),
         ("human", "{input}")
     ])
 
     # Prompt principal de QA: usa contexto recuperado e histórico de conversa.
     qa_prompt = ChatPromptTemplate.from_messages([
         ("system", get_prompt("qa_system.prompt.md")),
-        MessagesPlaceholder("chat_history"),
         ("human", "{input}")
     ])
 
@@ -120,16 +119,8 @@ def rag_tool(question: str, session: InMemoryChatMessageHistory, session_id: str
     # Encadeia recuperação + resposta para formar o pipeline RAG.
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-    # Wrapper que injeta histórico e registra novas mensagens automaticamente.
-    chain = RunnableWithMessageHistory(
-        rag_chain,
-        lambda *args, **kwargs: session,  # Usa o histórico específico da sessão.
-        input_messages_key="input",  # Chave do texto da pergunta.
-        history_messages_key="chat_history",  # Onde o histórico é lido/escrito.
-        output_messages_key="answer",  # Campo de resposta no output.
-    )
-
-    return chain.invoke(
+    return rag_chain.invoke(
         {"input": question},
-        config={"configurable": {"session_id": session_id}}
+        config={"configurable": {"session_id": context.session_id}},
+        context=context
     )

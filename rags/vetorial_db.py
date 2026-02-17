@@ -3,10 +3,10 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS, Chroma
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_pinecone import Pinecone
-from langchain.storage import LocalFileStore
-from langchain.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+from langchain_classic.embeddings import CacheBackedEmbeddings
 from pinecone import ServerlessSpec, Pinecone as PineconeClient
-from langchain.schema import Document
+from langchain_classic.schema import Document
 import os
 import shutil
 import faiss
