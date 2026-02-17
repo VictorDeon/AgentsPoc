@@ -5,7 +5,7 @@ import pandas as pd
 
 
 @tool(args_schema=QuestionInputDTO)
-def dataframe_python_tool(runtime: ToolRuntime[MainContext]) -> PythonAstREPLTool:
+def dataframe_python_tool(question: str, runtime: ToolRuntime[MainContext]) -> PythonAstREPLTool:
     """
     Utilize esta ferramenta sempre que o usuário solicitar cálculos,
     consultas ou transformações específicas usando Python diretamente
@@ -16,9 +16,12 @@ def dataframe_python_tool(runtime: ToolRuntime[MainContext]) -> PythonAstREPLToo
     ou geração de gráficos — nesses casos, use as ferramentas apropriadas.
     """
 
+    print(f"Entrei na ferramenta 'dataframe_python_tool' com a pergunta: \"{question}\"")
+
     context = runtime.context
 
     df = pd.read_csv('./assets/dados_entregas.csv')
+
     return PythonAstREPLTool(
         args_schema=QuestionInputDTO,
         response_format=ResponseSchema,

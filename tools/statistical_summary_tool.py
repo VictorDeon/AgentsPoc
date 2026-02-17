@@ -19,6 +19,8 @@ def statistical_summary_tool(question: str, runtime: ToolRuntime[MainContext]) -
         question: A pergunta do usuário relacionada ao resumo estatístico do DataFrame.
     """
 
+    print(f"Entrei na ferramenta 'statistical_summary_tool' com a pergunta: \"{question}\"")
+
     context = runtime.context
 
     GROQ_API_KEY = get_env_var('GROQ_API_KEY')

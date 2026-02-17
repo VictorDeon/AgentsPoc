@@ -20,6 +20,8 @@ def dataframe_informations_tool(question: str, runtime: ToolRuntime[MainContext]
         runtime: O contexto de execução da ferramenta, fornecido pelo agente.
     """
 
+    print(f"Entrei na ferramenta 'dataframe_informations_tool' com a pergunta: \"{question}\"")
+
     context = runtime.context
 
     GROQ_API_KEY = get_env_var('GROQ_API_KEY')

@@ -33,6 +33,8 @@ def graph_generator_tool(question: str, runtime: ToolRuntime[MainContext]) -> pl
         question: A pergunta do usuário relacionada à geração de gráficos a partir do DataFrame.
     """
 
+    print(f"Entrei na ferramenta 'graph_generator_tool' com a pergunta: \"{question}\"")
+
     context = runtime.context
 
     GROQ_API_KEY = get_env_var('GROQ_API_KEY')
