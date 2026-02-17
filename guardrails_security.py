@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from langchain_core.messages import SystemMessage
 
 
 @dataclass
@@ -76,16 +77,24 @@ class GuardrailsSecurity:
 
         return normalized
 
-    def validate_output(self, text: str) -> str:
+    def validate_output(self, content: dict) -> str:
         """
         Valida texto de saída do modelo.
-
-        Raises:
-            ValueError: quando a saída é insegura.
         """
 
-        if text is None or not str(text).strip():
+        messages = content.get("messages", [])
+
+        if not messages:
             raise ValueError("Saída vazia não é permitida.")
+
+        last_message: SystemMessage = messages[-1]
+        message_id = last_message.id
+        model_name = last_message.response_metadata.get("model_name", "desconhecido")
+        model_provider = last_message.response_metadata.get("model_provider", "desconhecido")
+        metadata = last_message.response_metadata
+
+        print(f"Validando saída do modelo '{model_name}' (ID: {message_id}, Provider: {model_provider}) com metadata: {metadata}")
+        text = last_message.content
 
         normalized = str(text).strip()
         if len(normalized) > self.max_output_chars:
@@ -93,7 +102,7 @@ class GuardrailsSecurity:
 
         for pattern in self._blocked_regex:
             if pattern.search(normalized):
-                print(f"Saída bloqueada por regex: {pattern.pattern}")
+                print(f"Saída bloqueada por regex: {normalized}")
                 raise ValueError("Saída contém possível informação sensível.")
 
         return normalized

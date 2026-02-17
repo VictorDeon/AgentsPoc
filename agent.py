@@ -80,7 +80,13 @@ class Agent:
         return create_agent(
             self.__llm,
             tools=tools,
-            system_prompt=get_prompt("react.prompt.md"),
+            debug=True,  # Habilita logs detalhados para depuração.
+            system_prompt="""
+                Você é um assistente inteligente especializado em responder perguntas.
+                Utilize as ferramentas disponíveis para fornecer respostas precisas e
+                informativas de acordo com a pergunta feita. Mantenha as respostas claras
+                e concisas, focando nas informações mais relevantes para a pergunta do usuário.
+            """,
             context_schema=MainContext,
             store=self.__session
         )
@@ -95,5 +101,5 @@ class Agent:
             {"messages": [{"role": "user", "content": question}]},
             context=MainContext(session_id=self.__session_id)
         )
-        self.__guardrails.validate_output(response["output"])
-        return response["output"]
+        # self.__guardrails.validate_output(response)
+        return response

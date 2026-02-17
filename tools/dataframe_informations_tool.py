@@ -34,12 +34,12 @@ def dataframe_informations_tool(question: str, runtime: ToolRuntime) -> str:
     context: MainContext = runtime.context
     store = runtime.store
     history = runtime.store.search(
-        namespace=("sessions", context.session_id, "questions"),
+        ("sessions", context.session_id, "questions"),
         query="recupere as últimas 3 perguntas",
         filter={"tool": "dataframe_informations_tool"},
         limit=3
     )
-    print(f"Histórico de perguntas anteriores nesta sessão: {history}")
+    print(f"Histórico de perguntas da sessão {context.session_id} anteriores nesta sessão: {history}")
 
     GROQ_API_KEY = get_env_var('GROQ_API_KEY')
 
@@ -77,7 +77,7 @@ def dataframe_informations_tool(question: str, runtime: ToolRuntime) -> str:
 
     # Armazena a última pergunta para contexto futuro.
     store.put(
-        namespace=("sessions", runtime.session_id, "questions"),
+        namespace=("sessions", context.session_id, "questions"),
         key=f"qid_{uuid4()}",
         value={
             "question": question,
@@ -85,8 +85,7 @@ def dataframe_informations_tool(question: str, runtime: ToolRuntime) -> str:
             "tool": "dataframe_informations_tool",
             "created_at": datetime.now().isoformat()
         },
-        index=["tool", "created_at"],
-        ttl=3600  # Armazena por 1 hora para contexto futuro.
+        index=["tool", "created_at"]
     )
 
     return response
