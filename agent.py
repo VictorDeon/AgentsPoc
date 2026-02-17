@@ -1,5 +1,6 @@
-from utils import load_environment_variables, get_env_var
-from langchain_google_genai import ChatGoogleGenerativeAI
+from utils import load_environment_variables
+from rich import print
+from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
 from guardrails_security import GuardrailsSecurity
 from langgraph.checkpoint.memory import InMemorySaver
@@ -67,14 +68,9 @@ class Agent:
         print("Inicializando agente")
 
         load_environment_variables()
-        GEMINI_API_KEY = get_env_var('GEMINI_API_KEY')
 
-        self.__guardrails = GuardrailsSecurity()  # Placeholder para futuras validações de entrada/saída.
-        self.__llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-lite",  # Modelo leve/rápido para conversação.
-            temperature=0.6,  # Baixa aleatoriedade para respostas mais consistentes.
-            api_key=GEMINI_API_KEY  # Credencial exigida pela API.
-        )
+        self.__guardrails = GuardrailsSecurity()
+        self.__llm = init_chat_model(model="google_genai:gemini-2.5-flash-lite")
         self.__session_id: str = None
         self.__chain = self.__build_tool_agent()
         RagSingletonTraining()
