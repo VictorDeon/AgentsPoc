@@ -1,6 +1,6 @@
 # Chatbot API (FastAPI + WhatsApp Simulado)
 
-API FastAPI que expõe o pipeline RAG de `chatbot_com_rag` e simula a integração com o WhatsApp.
+API FastAPI que simula a integração com o WhatsApp.
 
 ## Endpoints
 
@@ -22,3 +22,20 @@ API FastAPI que expõe o pipeline RAG de `chatbot_com_rag` e simula a integraç�
 
 - Use a variável de ambiente `WHATSAPP_VERIFY_TOKEN` para a verificação do webhook.
 - O pipeline RAG é inicializado no startup para evitar reindexação a cada request.
+
+## Rodar o servidor FastAPI
+
+1. Instale as dependências:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Configure as variáveis de ambiente necessárias (ex: `WHATSAPP_VERIFY_TOKEN`, `GEMINI_API_KEY`).
+
+3. Inicie o servidor:
+
+```bash
+uvicorn api.main:app --reload
+```
+4. O servidor estará disponível em `http://localhost:8000`. Use os endpoints descritos para interagir com o chatbot simulado.

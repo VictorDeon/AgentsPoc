@@ -19,7 +19,7 @@ def etl_pdf_process(llm: ChatGoogleGenerativeAI | None = None) -> list[Document]
         Lista de documentos prontos para indexação.
     """
 
-    loader = PyPDFDirectoryLoader("chatbot_com_rag/aulas", glob="*.pdf")
+    loader = PyPDFDirectoryLoader("assets", glob="*.pdf")
     docs = loader.load()  # Carrega todos os PDFs da pasta.
 
     # Transformação de dados (metadados adicionais por página).
@@ -95,7 +95,7 @@ def etl_text_process() -> list[Document]:
         Lista de documentos prontos para indexação.
     """
 
-    base_dir = Path("chatbot_com_rag/assets")
+    base_dir = Path("assets")
     file_paths = sorted(list(base_dir.glob("*.txt")))
 
     if not file_paths:

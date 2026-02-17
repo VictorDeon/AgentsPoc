@@ -1,9 +1,3 @@
-"""Guardrails de segurança para entradas e saídas do RAG.
-
-Este módulo aplica validações simples contra prompt injection,
-exfiltração de segredos e conteúdo sensível.
-"""
-
 from __future__ import annotations
 
 import re

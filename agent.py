@@ -124,7 +124,7 @@ class Agent:
             ),
             Tool(
                 name="Python Executor",
-                func=lambda question: dataframe_python_tool(),
+                func=dataframe_python_tool(),
                 description="""
                     Utilize esta ferramenta sempre que o usuário solicitar cálculos,
                     consultas ou transformações específicas usando Python diretamente
@@ -147,7 +147,7 @@ class Agent:
         return AgentExecutor(
             agent=agent,
             tools=tools,
-            verbose=False,
+            verbose=True,
             handle_parsing_errors=True,
             max_iterations=5,
             max_execution_time=60

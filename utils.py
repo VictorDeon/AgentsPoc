@@ -3,19 +3,18 @@ from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
 
 
-def get_prompt(template_folder: str, template_name: str) -> str:
+def get_prompt(template_name: str) -> str:
     """
     Carrega e renderiza um template Jinja2 a partir da pasta de prompts.
 
     Args:
         template_name: Nome do arquivo do template (ex.: "meu_prompt.md").
-        template_folder: Caminho para a pasta onde os templates estão armazenados.
     Returns:
         String com o template renderizado.
     """
 
     # Define o loader para a pasta de prompts do projeto.
-    env = Environment(loader=FileSystemLoader(template_folder))
+    env = Environment(loader=FileSystemLoader("./prompts"))
     # Renderiza o template sem variáveis adicionais (render padrão).
     return env.get_template(template_name).render()
 

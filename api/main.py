@@ -133,10 +133,10 @@ async def receive_message(request: Request, payload: WhatsAppMessage) -> WhatsAp
 
     try:
         response: dict = chat.invoke(payload.text)
-        answer = response.get("answer", "").strip()
-        documents_used = len(response.get("context", []))
+        answer: str = response.get("answer", "")
+        documents_used: int = len(response.get("context", []))
         _log_event("message_answered", from_number=payload.from_number, session_id=session_id, documents_used=documents_used)
-        return WhatsAppReply(to=payload.from_number, reply=answer, documents_used=documents_used)
+        return WhatsAppReply(to=payload.from_number, reply=answer.strip(), documents_used=documents_used)
     except ValueError as exc:
         _log_event("message_rejected", from_number=payload.from_number, session_id=session_id, reason=str(exc))
         raise HTTPException(status_code=400, detail=str(exc))
