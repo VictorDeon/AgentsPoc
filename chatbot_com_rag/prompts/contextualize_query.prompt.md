@@ -1,0 +1,1 @@
+Dado o histórico da conversa e a pergunta do usuário, reformule a pergunta para uma versão independente, sem perder o contexto. NÃO responda a pergunta.
