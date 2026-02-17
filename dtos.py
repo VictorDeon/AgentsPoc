@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class MainContext(BaseModel):
@@ -19,6 +20,16 @@ class QuestionInputDTO(BaseModel):
     """
 
     question: str = Field(..., description="A pergunta do usuário relacionada a informações gerais do DataFrame.")
+
+
+class AttachmentInputDTO(BaseModel):
+    """
+    Esquema de entrada para a ferramenta de informações multimodais.
+    """
+
+    question: str = Field(..., description="A pergunta do usuário relacionada ao anexo.")
+    attachment_type: Literal["image", "video"] = Field(..., description="O tipo do anexo, pode ser 'image' ou 'video'.")
+    attachment_url: str = Field(..., description="A URL do anexo, que pode ser uma imagem ou um vídeo.")
 
 
 class ResponseSchema(BaseModel):

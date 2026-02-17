@@ -10,7 +10,8 @@ from tools import (
     dataframe_informations_tool,
     statistical_summary_tool,
     graph_generator_tool,
-    dataframe_python_tool
+    dataframe_python_tool,
+    multimodal_inputs_tool
 )
 
 
@@ -74,7 +75,8 @@ class Agent:
             dataframe_informations_tool,
             statistical_summary_tool,
             graph_generator_tool,
-            dataframe_python_tool
+            dataframe_python_tool,
+            multimodal_inputs_tool
         ]
 
         checkpointer = InMemorySaver()
