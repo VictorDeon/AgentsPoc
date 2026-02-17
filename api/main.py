@@ -52,7 +52,6 @@ class WhatsAppReply(BaseModel):
 
     to: str
     reply: str
-    documents_used: int | None = None
 
 
 def _log_event(event: str, **fields: object) -> None:
@@ -124,18 +123,16 @@ async def receive_message(request: Request, payload: WhatsAppMessage) -> WhatsAp
 
     chat = Agent.get_instance(session_id=payload.session_id or payload.from_number)
 
-    raw_body = await request.body()
-    _verify_whatsapp_signature(raw_body, request.headers.get("X-Hub-Signature-256"))
+    # raw_body = await request.body()
+    # _verify_whatsapp_signature(raw_body, request.headers.get("X-Hub-Signature-256"))
 
     session_id = payload.session_id or payload.from_number
     _log_event("message_received", from_number=payload.from_number, session_id=session_id)
 
     try:
-        response: dict = chat.invoke(payload.text)
-        answer: str = response.get("answer", "")
-        documents_used: int = len(response.get("context", []))
-        _log_event("message_answered", from_number=payload.from_number, session_id=session_id, documents_used=documents_used)
-        return WhatsAppReply(to=payload.from_number, reply=answer.strip(), documents_used=documents_used)
+        response: str = chat.invoke(payload.text)
+        _log_event("message_answered", from_number=payload.from_number, session_id=session_id)
+        return WhatsAppReply(to=payload.from_number, reply=response.strip())
     except ValueError as exc:
         _log_event("message_rejected", from_number=payload.from_number, session_id=session_id, reason=str(exc))
         raise HTTPException(status_code=400, detail=str(exc))

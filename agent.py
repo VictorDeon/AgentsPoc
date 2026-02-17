@@ -1,11 +1,11 @@
 from utils import load_environment_variables, get_env_var
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.store.memory import InMemoryStore
 from langchain.agents import create_agent
 from guardrails_security import GuardrailsSecurity
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain.agents.middleware import ModelRequest, dynamic_prompt
 from langchain.agents.middleware import ModelCallLimitMiddleware
+from rags.singleton_training import RagSingletonTraining
 from dtos import MainContext, ResponseSchema
 from utils import get_prompt
 from tools import (
@@ -55,7 +55,6 @@ class Agent:
     """
 
     __instance: "Agent" = None
-    __session_store: dict[str, InMemoryStore] = {}
 
     def __init__(self) -> None:
         """
@@ -73,12 +72,12 @@ class Agent:
         self.__guardrails = GuardrailsSecurity()  # Placeholder para futuras validações de entrada/saída.
         self.__llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash-lite",  # Modelo leve/rápido para conversação.
-            temperature=0.1,  # Baixa aleatoriedade para respostas mais consistentes.
+            temperature=0.6,  # Baixa aleatoriedade para respostas mais consistentes.
             api_key=GEMINI_API_KEY  # Credencial exigida pela API.
         )
-        self.__session: InMemoryStore = None
         self.__session_id: str = None
         self.__chain = self.__build_tool_agent()
+        RagSingletonTraining()
 
     @staticmethod
     def get_instance(session_id: str) -> "Agent":
@@ -92,11 +91,6 @@ class Agent:
         print(f"Criando nova sessão de conversa com o agente '{session_id}'...")
 
         Agent.__instance.__session_id = session_id
-
-        if session_id not in Agent.__instance.__session_store:
-            Agent.__instance.__session_store[session_id] = InMemoryStore()
-
-        Agent.__instance.__session = Agent.__instance.__session_store[session_id]
 
         return Agent.__instance
 
@@ -123,12 +117,11 @@ class Agent:
             middleware=[
                 agent_system_prompt,
                 ModelCallLimitMiddleware(
-                    thread_limit=10,     # Limite de 10 chamadas por thread para evitar loops infinitos.
-                    run_limit=5,         # Limite de 5 chamadas por execução do agente para evitar abusos.
+                    thread_limit=15,     # Limite de 15 chamadas por thread para evitar loops infinitos.
+                    run_limit=20,         # Limite de 20 chamadas por execução do agente para evitar abusos.
                     exit_behavior="end"  # Se os limites forem atingidos, o agente responderá com uma mensagem de encerramento e não fará mais chamadas ao modelo.
                 )
             ],
-            store=self.__session,
             response_format=ResponseSchema,
             checkpointer=checkpointer
         )
@@ -142,7 +135,7 @@ class Agent:
         response = self.__chain.invoke(
             {"messages": [{"role": "user", "content": question}]},
             config={"configurable": {"thread_id": self.__session_id}},
-            context=MainContext(session_id=self.__session_id, sentiment="baby")
+            context=MainContext(session_id=self.__session_id, sentiment="neutral")
         )
         structured_response: ResponseSchema = response["structured_response"]
         self.__guardrails.validate_output(structured_response.answer)

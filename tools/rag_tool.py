@@ -1,5 +1,3 @@
-from utils import get_env_var
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.tools import tool, ToolRuntime
 from langchain_classic.chains.history_aware_retriever import create_history_aware_retriever
 from langchain_classic.chains.retrieval import create_retrieval_chain
@@ -7,10 +5,9 @@ from langchain_classic.chains.combine_documents import create_stuff_documents_ch
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
+from rags.singleton_training import RagSingletonTraining
 from dtos import QuestionInputDTO, MainContext
-from rags.vetorial_db import results_by_chromadb
 from utils import get_prompt
-from rags.etls import etl_pdf_process
 
 
 @tool(args_schema=QuestionInputDTO)
@@ -27,55 +24,11 @@ def rag_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
 
     context = runtime.context
 
-    # Recupera a chave de API do Gemini do ambiente. Falha cedo se ausente.
-    GEMINI_API_KEY = get_env_var('GEMINI_API_KEY')
+    rag_singleton = RagSingletonTraining()
 
-    # Instancia o LLM para respostas e para reescrever a pergunta com contexto.
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",  # Modelo leve/rápido para conversação.
-        temperature=0.1,  # Baixa aleatoriedade para respostas mais consistentes.
-        api_key=GEMINI_API_KEY  # Credencial exigida pela API.
-    )
-
-    # Instancia o modelo de embeddings do Google para vetorizar texto.
-    # Esses vetores são necessários para busca semântica no banco vetorial.
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="gemini-embedding-001",  # Modelo específico de embeddings.
-        google_api_key=GEMINI_API_KEY  # Credencial exigida pela API.
-    )
-
-    # Executa ETL dos PDFs (pode usar o LLM para limpeza/extração).
-    documents = etl_pdf_process(llm)
-
-    # Metadados obrigatórios para o prompt dos documentos.
-    # Valores padrão evitam KeyError quando a fonte não fornece algum campo.
-    required_metadata_defaults = {
-        "id_doc": "N/A",
-        "source": "N/A",
-        "page_number": "N/A",
-        "categoria": "N/A",
-        "id_produto": "N/A",
-        "preco": "N/A",
-        "timestamp": "N/A",
-        "data_owner": "N/A",
-    }
-
-    # Normaliza metadados (inclui defaults e converte tipos não serializáveis).
-    for doc in documents:
-        metadata = doc.metadata or {}
-        for key, default_value in required_metadata_defaults.items():
-            if key not in metadata:
-                metadata[key] = default_value
-            else:
-                value = metadata[key]
-                # Converte objetos tipo NumPy scalar em tipos Python nativos.
-                if hasattr(value, "item"):
-                    metadata[key] = value.item()
-
-        doc.metadata = metadata
-
-    # Indexa documentos no ChromaDB e retorna o repositório vetorial.
-    vector_store = results_by_chromadb(documents, embeddings)
+    llm = rag_singleton.get_qa_llm()
+    vector_store = rag_singleton.get_vector_store()
+    documents = rag_singleton.get_documents()
 
     # Prompt para reescrever a pergunta com base no histórico (sem responder).
     contextualize_q_prompt = ChatPromptTemplate.from_messages([
@@ -121,8 +74,10 @@ def rag_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
     # Encadeia recuperação + resposta para formar o pipeline RAG.
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-    return rag_chain.invoke(
+    result = rag_chain.invoke(
         {"input": question},
         config={"configurable": {"session_id": context.session_id}},
         context=context
     )
+
+    return result
