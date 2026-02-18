@@ -1,12 +1,13 @@
 from langgraph.graph import StateGraph, START, END, add_messages
 from langgraph.graph.state import RunnableConfig
+from langgraph.prebuilt.tool_node import ToolNode, tools_condition
 from langchain.tools import tool, ToolRuntime
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, ToolMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain.chat_models import init_chat_model
 from enum import Enum
 from utils import checkpointer
 from dtos import MainContext, QuestionInputDTO
-from typing import TypedDict, Annotated, Sequence, Literal
+from typing import TypedDict, Annotated, Sequence
 from rich import print
 
 
@@ -79,7 +80,7 @@ def divide_subtool(a: float, b: float) -> float:
 
 class GraphType(Enum):
     CALL_LLM = "call_llm"
-    TOOL_NODE = "tool_node"
+    TOOL_NODE = "tools"
 
 
 class ToolState(TypedDict):
@@ -88,61 +89,21 @@ class ToolState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
 
 
+TOOLS = [multiply_subtool, add_subtool, subtract_subtool, divide_subtool]
+
+
 def call_llm(state: ToolState) -> ToolState:
     """
     Node que carrega a llm com as ferramentas matemáticas.
     """
 
-    print("Entrei no node `call_llm` do grafo")
     llm = init_chat_model(model="google_genai:gemini-2.5-flash-lite")
-    llm_with_tools = llm.bind_tools([multiply_subtool, add_subtool, subtract_subtool, divide_subtool])
+    llm_with_tools = llm.bind_tools(TOOLS)
     llm_result = llm_with_tools.invoke(state["messages"])
     return ToolState(messages=[llm_result])
 
 
-def tool_node(state: ToolState) -> ToolState:
-    """
-    Node roteador que identifica chamadas de ferramentas feitas pela LLM e as executa,
-    retornando o resultado como uma nova mensagem.
-    """
-
-    print("Entrei no node `tool_node` do grafo")
-    llm_response = state["messages"][-1]
-    if not isinstance(llm_response, AIMessage) or not getattr(llm_response, "tool_calls", None):
-        return state
-
-    call = llm_response.tool_calls[-1]
-    name, args, id_ = call["name"], call["args"], call["id"]
-    print(f"LLM solicitou a ferramenta '{name}' com os argumentos {args}")
-
-    # Mapeamento local das ferramentas
-    tools_by_name = {
-        tool.name: tool for tool in [multiply_subtool, add_subtool, subtract_subtool, divide_subtool]
-    }
-
-    try:
-        content = str(tools_by_name[name].invoke(args))
-        status = "success"
-    except Exception as e:
-        content = f"Por favor, arrume o seu error: {str(e)}"
-        status = "error"
-
-    tool_message = ToolMessage(content=content, tool_call_id=id_, status=status)
-    return ToolState(messages=[tool_message])
-
-
-def router(state: ToolState) -> Literal["tool_node", "__end__"]:
-    """
-    Roteador que ou vai rodar uma ferramenta matematica ou finaliza.
-    """
-
-    print("Entrei no roteador do grafo")
-
-    llm_response = state["messages"][-1]
-    if getattr(llm_response, "tool_calls", None):
-        return GraphType.TOOL_NODE.value
-
-    return END
+tool_node = ToolNode(tools=TOOLS)
 
 
 @tool(args_schema=QuestionInputDTO)
@@ -173,11 +134,15 @@ def graph_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
 
     # Adicionando os nós
     builder.add_node(GraphType.CALL_LLM.value, call_llm)
-    builder.add_node("tool_node", tool_node)
+    builder.add_node(GraphType.TOOL_NODE.value, tool_node)
 
     # Adicionando as arestas
+    # __start__ -> call_llm -> (condicional) -> tool_node -> call_llm -> (condicional) -> __end__
     builder.add_edge(START, GraphType.CALL_LLM.value)
-    builder.add_conditional_edges('call_llm', router, ["tool_node", "__end__"])
+    # Do call_llm ele roda o tools_condition que valida em qual dos casos na lista ele vai seguir.
+    builder.add_conditional_edges(GraphType.CALL_LLM.value, tools_condition, [GraphType.TOOL_NODE.value, END])
+    # Se optar a conditional seguir o tool_node, ele vai rodar a ferramenta e voltar ao call_llm para rodar novamente o loop
+    # até o condition cair em __end__
     builder.add_edge(GraphType.TOOL_NODE.value, GraphType.CALL_LLM.value)
 
     graph = builder.compile(checkpointer=checkpointer)
