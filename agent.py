@@ -5,7 +5,7 @@ from langchain.agents import create_agent
 from guardrails_security import GuardrailsSecurity
 from langchain.agents.middleware import ModelRequest, dynamic_prompt
 from langchain.agents.middleware import ModelCallLimitMiddleware
-# from rags.singleton_training import RagSingletonTraining
+from rags.singleton_training import RagSingletonTraining
 from dtos import MainContext, ResponseSchema
 from utils import get_prompt, checkpointer
 from tools import (
@@ -75,7 +75,7 @@ class Agent:
         self.__llm = init_chat_model(model="google_genai:gemini-2.5-flash-lite")
         self.__session_id: str = None
         self.__chain = self.__build_tool_agent()
-        # RagSingletonTraining()
+        RagSingletonTraining()
 
     @staticmethod
     def get_instance(session_id: str) -> "Agent":
