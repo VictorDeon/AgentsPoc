@@ -189,7 +189,17 @@ def graph_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
 
     result = graph.invoke(
         {"messages": [
-            SystemMessage(content="Você é um assistente matemático. Após executar as ferramentas matemáticas, SEMPRE responda com o resultado em linguagem natural, dizendo apenas o número resultado sem explicações adicionais."),
+            SystemMessage(content="""
+                Você é um assistente matemático. Após executar as ferramentas matemáticas,
+                SEMPRE responda com o resultado em linguagem natural, dizendo apenas o número
+                resultado sem explicações adicionais.
+
+                Ferramentas Disponíveis:
+                    - multiply_subtool: Multiplica dois números.
+                    - add_subtool: Soma dois números.
+                    - subtract_subtool: Subtrai dois números.
+                    - divide_subtool: Divide dois números.
+            """),
             HumanMessage(question)
         ]},
         config=config,
