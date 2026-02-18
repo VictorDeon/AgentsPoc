@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db_poc
+    restart: always
+    environment:
+      POSTGRES_USER: poc
+      POSTGRES_PASSWORD: poc
+      POSTGRES_DB: poc
+    ports:
+      - "5444:5432"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: postgres_admin_poc
+    ports:
+      - "8085:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=poc@poc.com
+      - PGADMIN_DEFAULT_PASSWORD=poc
+    depends_on:
+      - db
+

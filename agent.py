@@ -1,13 +1,13 @@
-from utils import load_environment_variables
 from rich import print
 from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
+from langgraph.pregel.main import BaseCheckpointSaver
 from guardrails_security import GuardrailsSecurity
 from langchain.agents.middleware import ModelRequest, dynamic_prompt
 from langchain.agents.middleware import ModelCallLimitMiddleware
-from rags.singleton_training import RagSingletonTraining
+# from rags.singleton_training import RagSingletonTraining
 from dtos import MainContext, ResponseSchema
-from utils import get_prompt, checkpointer
+from utils import get_prompt
 from tools import (
     dataframe_informations_tool,
     statistical_summary_tool,
@@ -58,6 +58,7 @@ class Agent:
     """
 
     __instance: "Agent" = None
+    __checkpointer: BaseCheckpointSaver = None
 
     def __init__(self) -> None:
         """
@@ -69,16 +70,14 @@ class Agent:
 
         print("Inicializando agente")
 
-        load_environment_variables()
-
         self.__guardrails = GuardrailsSecurity()
         self.__llm = init_chat_model(model="google_genai:gemini-2.5-flash-lite")
         self.__session_id: str = None
         self.__chain = self.__build_tool_agent()
-        RagSingletonTraining()
+        # RagSingletonTraining()
 
     @staticmethod
-    def get_instance(session_id: str) -> "Agent":
+    def get_instance(session_id: str, checkpointer: BaseCheckpointSaver) -> "Agent":
         """
         Inicializa o agente, configurando o pipeline de RAG e o histórico de mensagens.
         """
@@ -89,7 +88,7 @@ class Agent:
         print(f"Criando nova sessão de conversa com o agente '{session_id}'...")
 
         Agent.__instance.__session_id = session_id
-
+        Agent.__instance.__checkpointer = checkpointer
         return Agent.__instance
 
     def __build_tool_agent(self):
@@ -120,19 +119,23 @@ class Agent:
                 )
             ],
             response_format=ResponseSchema,
-            checkpointer=checkpointer
+            checkpointer=self.__checkpointer
         )
 
-    def invoke(self, question: str) -> str:
+    async def invoke(self, question: str) -> str:
         """
         Executa o agente com ferramentas (RAG + análise de dados).
         """
 
         self.__guardrails.validate_input(question)
-        response = self.__chain.invoke(
+        response = await self.__chain.ainvoke(
             {"messages": [{"role": "user", "content": question}]},
             config={"configurable": {"thread_id": self.__session_id}},
-            context=MainContext(session_id=self.__session_id, sentiment="neutral")
+            context=MainContext(
+                session_id=self.__session_id,
+                sentiment="neutral",
+                checkpointer=self.__checkpointer
+            )
         )
         structured_response: ResponseSchema = response["structured_response"]
         self.__guardrails.validate_output(structured_response.answer)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from contextlib import asynccontextmanager
 
+from langgraph.checkpoint.memory import InMemorySaver
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
@@ -121,7 +122,7 @@ async def receive_message(request: Request, payload: WhatsAppMessage) -> WhatsAp
     Recebe a mensagem do WhatsApp e responde usando o RAG.
     """
 
-    chat = Agent.get_instance(session_id=payload.session_id or payload.from_number)
+    chat = Agent.get_instance(session_id=payload.session_id or payload.from_number, checkpointer=InMemorySaver())
 
     raw_body = await request.body()
     _verify_whatsapp_signature(raw_body, request.headers.get("X-Hub-Signature-256"))

@@ -1,9 +1,10 @@
 import os
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
-from langgraph.checkpoint.memory import InMemorySaver
-
-checkpointer = InMemorySaver()
+from typing import AsyncGenerator
+from rich import print
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from contextlib import asynccontextmanager
 
 
 def get_prompt(template_name: str, context: dict = {}) -> str:
@@ -45,3 +46,20 @@ def get_env_var(key: str, default: str | None = None) -> str | None:
     """
 
     return os.getenv(key, default)
+
+
+@asynccontextmanager
+async def db_checkpointer() -> AsyncGenerator[AsyncPostgresSaver, None]:
+    """
+    Lifespan para carregar variáveis de ambiente e realizar outras tarefas de setup.
+    """
+
+    print("Chatbot iniciado. Digite sua pergunta ou 'sair' para encerrar.")
+
+    load_environment_variables()
+
+    async with AsyncPostgresSaver.from_conn_string(get_env_var("DB_DSN")) as checkpointer:
+        await checkpointer.setup()
+        yield checkpointer
+
+    print("Finalizando chatbot")

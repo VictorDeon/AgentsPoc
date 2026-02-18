@@ -1,17 +1,29 @@
 from agent import Agent
 from rich import print
 from rich.markdown import Markdown
+from utils import db_checkpointer
+import asyncio
 
 
-def main(question: str):
+async def main():
     """
     Orquestra todo o fluxo de RAG, do ETL à resposta da pergunta.
     """
 
-    agent = Agent.get_instance(session_id="default")
-    response = agent.invoke(question)
-    print(Markdown(response))
-    print(Markdown("---"))
+    async with db_checkpointer() as checkpointer:
+        while True:
+            question = input("\nPergunta: ").strip()
+            if not question:
+                print("Por favor, digite uma pergunta válida.")
+                continue
+
+            if question.lower() in {"sair", "exit", "quit", "q"}:
+                break
+
+            agent = Agent.get_instance(session_id="default", checkpointer=checkpointer)
+            response = await agent.invoke(question)
+            print(Markdown(response))
+            print(Markdown("---"))
 
 
 if __name__ == "__main__":
@@ -21,15 +33,4 @@ if __name__ == "__main__":
     - "para que ela serve?"
     """
 
-    # Ponto de entrada para execução via CLI.
-    print("Chatbot iniciado. Digite sua pergunta ou 'sair' para encerrar.")
-    while True:
-        question = input("\nPergunta: ").strip()
-        if not question:
-            print("Por favor, digite uma pergunta válida.")
-            continue
-        if question.lower() in {"sair", "exit", "quit", "q"}:
-            print("Encerrando o chatbot.")
-            break
-
-        main(question)
+    asyncio.run(main())

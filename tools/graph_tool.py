@@ -5,7 +5,6 @@ from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain.chat_models import init_chat_model
 from enum import Enum
-from utils import checkpointer
 from dtos import MainContext, QuestionInputDTO
 from typing import TypedDict, Annotated, Sequence
 from rich import print
@@ -145,7 +144,7 @@ def graph_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
     # até o condition cair em __end__
     builder.add_edge(GraphType.TOOL_NODE.value, GraphType.CALL_LLM.value)
 
-    graph = builder.compile(checkpointer=checkpointer)
+    graph = builder.compile(checkpointer=runtime.context.checkpointer)
 
     # Usar thread_id isolado para evitar conflito de estrutura com o agente principal
     config = RunnableConfig(

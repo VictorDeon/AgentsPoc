@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from langgraph.pregel.main import BaseCheckpointSaver
 from typing import Literal
 
 
@@ -17,6 +18,15 @@ class MainContext(BaseModel):
         None,
         description="Sentimento detectado na pergunta do usuário, útil para personalizar respostas."
     )
+
+    checkpointer: BaseCheckpointSaver = Field(
+        ...,
+        description="Objeto de checkpoint para salvar o estado da conversa e das ferramentas."
+    )
+
+    model_config = {
+        "arbitrary_types_allowed": True
+    }
 
 
 class QuestionInputDTO(BaseModel):
