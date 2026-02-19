@@ -3,6 +3,8 @@ services:
     image: postgres:15
     container_name: postgres_db_poc
     restart: always
+    profiles:
+      - db
     environment:
       POSTGRES_USER: poc
       POSTGRES_PASSWORD: poc
@@ -13,6 +15,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     container_name: postgres_admin_poc
+    profiles:
+      - db
     ports:
       - "8085:80"
     environment:
@@ -25,5 +29,7 @@ services:
     build: ./mcp-server
     container_name: mcp_server_poc
     restart: always
+    profiles:
+      - mcp
     ports:
       - "8000:8000"
