@@ -21,3 +21,9 @@ services:
     depends_on:
       - db
 
+  mcp-server:
+    build: ./mcp-server
+    container_name: mcp_server_poc
+    restart: always
+    ports:
+      - "8000:8000"

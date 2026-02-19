@@ -72,10 +72,14 @@ async def graph_tool(question: str, runtime: ToolRuntime[MainContext]) -> str:
 
     client = MultiServerMCPClient(
         {
+            # "math": {
+            #     "command": "python",
+            #     "args": ["mcp-server/server.py"],
+            #     "transport": "stdio",
+            # }
             "math": {
-                "command": "python",
-                "args": ["mcp-server/server.py"],
-                "transport": "stdio",
+                "url": "http://localhost:8000/sse",
+                "transport": "sse",
             }
         }
     )

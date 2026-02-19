@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+import uvicorn
 
 mcp = FastMCP("math")
 
@@ -71,4 +72,5 @@ def divide_subtool(a: float, b: float) -> float:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    # mcp.run(transport="stdio")
+    uvicorn.run(mcp.sse_app(), host="0.0.0.0", port=8000)
